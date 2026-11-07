@@ -2,6 +2,8 @@
 
 用交互剖面演示 Zemax → TracePro 工作流中的光束包络、一级和二级遮光罩、机械光阑与像面后盖。网页也介绍分区外筒、挡光隔圈和消光环槽。
 
+「从你手头的文件开始」按 ZMX、光线 CSV 和遮光罩计算三种情况提供输入清单和可复制指令。当前为项目展示阶段。
+
 遮光罩演示使用 [NASA/Goddard 文献算例](https://ntrs.nasa.gov/citations/20230011280) 的输入和几何递推结果。可切换无挡光环对照、单级和带中间光阑的两级结构，并用角度滑块观察子午剖面的直通窗口。窗口宽度用于几何比较，PST 由独立光学追迹评估。
 
 - 主页 <https://lilu-rhyme.github.io/tracepro-straylight-workflow/>

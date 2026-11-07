@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="从 Zemax 光线包络生成 TracePro 机械件宏。在线切换一级和二级遮光罩，复核机械光阑、筒壁与像面后盖。">
+<meta name="description" content="Zemax 到 TracePro 杂散光机械件流程。按手头的文件选择使用方法，查看机械光阑、像面后盖和文献计算的遮光罩剖面。">
 <title>TracePro 杂散光机械件工作流</title>
 <style>
 :root{color-scheme:dark;--bg:#101819;--panel:#162323;--line:#324544;--text:#eef2e9;--muted:#b4c3bc;--green:#b5f487;--amber:#ffc285;--cyan:#7be2cb}
@@ -41,6 +41,8 @@ h3{font-size:1.16rem;margin-bottom:8px}
 .badge{padding:3px 10px;color:var(--amber);font-size:.8rem;border:1px solid #6e5840;border-radius:20px}
 .scope-body{padding:20px 22px}
 .modes{display:flex;flex-wrap:wrap;gap:8px}
+.mode-groups{display:flex;flex-wrap:wrap;gap:16px 28px}
+.mode-label{margin:0 0 7px;color:var(--muted);font-size:.83rem}
 .hood-controls{display:grid;grid-template-columns:minmax(120px,200px) 1fr;gap:8px 16px;align-items:center;margin-top:16px;font-size:.9rem}
 .hood-controls[hidden]{display:none}
 .hood-controls input{width:100%;accent-color:var(--green)}
@@ -61,12 +63,16 @@ button[aria-pressed="true"]{background:#31452e;color:var(--green);border-color:#
 .step p,.check p,.note{color:var(--muted);margin-bottom:0}
 .note{font-size:.9rem}
 .step .eyebrow{margin-bottom:10px}
-.start{display:grid;grid-template-columns:1fr 1fr;gap:42px;align-items:start}
+.start{margin-bottom:32px}
+.start-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:28px}
+.start-guide{padding:17px 0}
+.start-guide ul{padding-left:1.3rem;margin:.5rem 0 0;color:var(--muted)}
+.start-guide li+li{margin-top:5px}
 blockquote{margin:0;padding:17px 20px;background:var(--panel);border-left:3px solid var(--green)}
 .copyrow{display:flex;align-items:center;gap:12px;margin-top:14px}
 footer{padding:25px 0 35px;color:var(--muted);font-size:.87rem}
 .footer{display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
-@media(max-width:720px){.wrap{width:calc(100% - 32px)}.hero,.start{grid-template-columns:1fr;gap:22px}.hero{padding-top:45px}.hero aside{display:none}.steps,.checks{grid-template-columns:1fr;gap:14px}.section{padding:42px 0}.scope-head,.scope-body{padding:14px}.bar{min-height:61px}.bar nav a:first-child{display:none}}
+@media(max-width:720px){.wrap{width:calc(100% - 32px)}.hero,.start-layout{grid-template-columns:1fr;gap:16px}.hero{padding-top:45px}.hero aside{display:none}.steps,.checks{grid-template-columns:1fr;gap:14px}.section{padding:42px 0}.scope-head,.scope-body{padding:14px}.bar{min-height:61px}.bar nav a:first-child{display:none}.start-guide{padding-bottom:0}}
 @media(max-width:520px){.chart text{font-size:20px}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
 </style>
@@ -74,7 +80,7 @@ footer{padding:25px 0 35px;color:var(--muted);font-size:.87rem}
 <body>
 <header><div class="wrap bar">
   <a class="brand" href="./">TracePro 光机工作流</a>
-  <nav aria-label="页面导航"><a href="#demo">交互剖面</a><a href="#workflow">工作流程</a><a href="#start">使用方法</a></nav>
+  <nav aria-label="页面导航"><a href="#workflow">工作流程</a><a href="#start">使用方法</a><a href="#demo">交互剖面</a></nav>
 </div></header>
 <main class="wrap">
   <section class="hero" aria-labelledby="title">
@@ -82,21 +88,57 @@ footer{padding:25px 0 35px;color:var(--muted);font-size:.87rem}
       <p class="eyebrow">ZEMAX / TRACEPRO</p>
       <h1 id="title">杂散光<span>机械件</span><br>生成与复核</h1>
       <p class="lede">用 Zemax 的最大采样光束包络确定筒内孔，生成前端遮光罩、独立机械光阑与像面后盖，再用同一版 TracePro 宏绘制剖面。</p>
-      <div class="actions"><a class="button primary" href="#demo">查看剖面演示 ↓</a><a class="button" href="#start">如何使用</a></div>
+      <div class="actions"><a class="button primary" href="#start">按手头文件开始 ↓</a><a class="button" href="#demo">查看交互剖面</a></div>
     </div>
     <aside><strong>输入</strong>Zemax 处方 + 光线 CSV<br><br><strong>输出</strong>TracePro SCM + 机械报告 + SVG</aside>
+  </section>
+
+  <section class="scope start" id="start" aria-labelledby="start-title">
+    <div class="scope-head"><h2 id="start-title">从你手头的文件开始</h2><span class="badge">项目展示 · 公测暂未开放</span></div>
+    <div class="scope-body">
+      <p class="note">下面的指令供已安装技能的用户在本机 Codex 中使用。真实项目的文件在本机处理。</p>
+      <div class="start-layout">
+        <div class="start-guide">
+          <div class="modes" role="group" aria-label="选择目前手头的数据">
+            <button type="button" data-start="zmx" aria-pressed="true">只有 ZMX</button>
+            <button type="button" data-start="csv" aria-pressed="false">已有光线 CSV</button>
+            <button type="button" data-start="hood" aria-pressed="false">要计算遮光罩</button>
+          </div>
+          <div aria-live="polite">
+            <ul id="start-inputs">
+              <li>准备 Zemax 处方和目标配置号。</li>
+              <li>先拿到两份 ZPL，再在 OpticStudio 中运行，导出光线包络和入射段 CSV。</li>
+            </ul>
+          </div>
+        </div>
+        <div class="start-guide">
+          <blockquote id="prompt">用 zemax-to-tracepro-straylight 检查我上传的 ZMX 和指定配置。先生成光线包络和入射段的 Zemax 导出宏，并告诉我在 OpticStudio 中运行后要提交哪两个 CSV。</blockquote>
+          <div class="copyrow"><button id="copy" type="button">复制使用指令</button><span id="copy-result" class="note" role="status"></span></div>
+        </div>
+      </div>
+    </div>
   </section>
 
   <section class="scope" id="demo" aria-labelledby="demo-title">
     <div class="scope-head"><h2 id="demo-title">轴向剖面演示</h2><span class="badge" id="demo-source">文献算例 · 单位 mm</span></div>
     <div class="scope-body">
-      <div class="modes" role="group" aria-label="切换机械方案">
-        <button type="button" data-mode="reference" aria-pressed="false">仅光学 STOP</button>
-        <button type="button" data-mode="stop" aria-pressed="false">加入机械光阑</button>
-        <button type="button" data-mode="rear" aria-pressed="false">检查像面后盖</button>
-        <button type="button" data-mode="hood0" aria-pressed="false">普通遮光罩</button>
-        <button type="button" data-mode="hood1" aria-pressed="false">一级遮光罩</button>
-        <button type="button" data-mode="hood2" aria-pressed="true">二级遮光罩</button>
+      <div class="mode-groups">
+        <div>
+          <p class="mode-label" id="mechanics-group">机械件示意</p>
+          <div class="modes" role="group" aria-labelledby="mechanics-group">
+            <button type="button" data-mode="reference" aria-pressed="false">仅光学 STOP</button>
+            <button type="button" data-mode="stop" aria-pressed="false">加入机械光阑</button>
+            <button type="button" data-mode="rear" aria-pressed="false">检查像面后盖</button>
+          </div>
+        </div>
+        <div>
+          <p class="mode-label" id="baffle-group">遮光罩文献算例</p>
+          <div class="modes" role="group" aria-labelledby="baffle-group">
+            <button type="button" data-mode="hood0" aria-pressed="false">普通遮光罩</button>
+            <button type="button" data-mode="hood1" aria-pressed="false">一级遮光罩</button>
+            <button type="button" data-mode="hood2" aria-pressed="true">二级遮光罩</button>
+          </div>
+        </div>
       </div>
       <div class="hood-controls" id="hood-controls" hidden>
         <label for="incident-angle">离轴入射角 <output id="angle-display" for="incident-angle">12°</output></label>
@@ -106,7 +148,7 @@ footer{padding:25px 0 35px;color:var(--muted);font-size:.87rem}
       <svg id="section" class="chart" viewBox="0 0 840 288" role="img" aria-labelledby="chart-title">
         <title id="chart-title">光机剖面示意图</title><g id="plot"></g>
       </svg>
-      <noscript><p>启用 JavaScript 后可以切换三种剖面方案。</p></noscript>
+      <noscript><p>启用 JavaScript 后可以切换剖面方案。</p></noscript>
       <div class="legend" id="overview-legend" aria-label="图例">
         <span style="--key:#9caea8">筒体与后盖</span><span style="--key:#ffc285">机械光阑与肩位</span>
         <span style="--key:#7be2cb">最大采样光束半径</span><span style="--key:#91b7ff">镜片边界</span>
@@ -143,14 +185,6 @@ footer{padding:25px 0 35px;color:var(--muted);font-size:.87rem}
       <article class="check"><h3>离线几何</h3><p>检查宏的版本、机械接续和采样光线净空，并比较不同遮光罩的离轴直通窗口。</p></article>
       <article class="check"><h3>TracePro 追迹</h3><p>使用对应版本的场景、光源和探测器设置，分别核对正常通光与离轴 PST。</p></article>
       <article class="check"><h3>实体装配</h3><p>根据实际镜片边缘、定位面、压紧路径和装入方向确认可装配性。</p></article>
-    </div>
-  </section>
-  <section class="section start" id="start">
-    <div><p class="eyebrow">04 / GET STARTED</p><h2>在本机调用技能</h2>
-    <p class="note">安装 <code>zemax-to-tracepro-straylight</code> 后，先提供目标 ZMX 和当前配置号。导出光线 CSV 后，交回同一配置的数据即可继续生成。</p></div>
-    <div>
-      <blockquote id="prompt">用 zemax-to-tracepro-straylight 处理当前 ZMX。根据入瞳、半视场角、目标排斥角和安装长度限制计算一级和二级遮光罩，给出筒长、孔径和挡光环位置。用入射段 CSV 复核通光后，再生成可用的 SCM。离线处理。</blockquote>
-      <div class="copyrow"><button id="copy" type="button">复制使用指令</button><span id="copy-result" class="note" role="status"></span></div>
     </div>
   </section>
 </main>
@@ -309,6 +343,36 @@ function show(mode) {
 for (const button of buttons) button.addEventListener("click", () => show(button.dataset.mode));
 angleControl.addEventListener("input", () => show(selectedMode));
 show("hood2");
+
+const startOptions = {
+  zmx: {
+    inputs: ["准备 Zemax 处方和目标配置号。", "先拿到两份 ZPL，再在 OpticStudio 中运行，导出光线包络和入射段 CSV。"],
+    prompt: "用 zemax-to-tracepro-straylight 检查我上传的 ZMX 和指定配置。先生成光线包络和入射段的 Zemax 导出宏，并告诉我在 OpticStudio 中运行后要提交哪两个 CSV。"
+  },
+  csv: {
+    inputs: ["同时提供 ZMX、配置号、光线包络 CSV 和入射段 CSV。", "核对两个 CSV 属于同一处方和配置，再生成 SCM、机械报告和同版剖面。"],
+    prompt: "用 zemax-to-tracepro-straylight 检查这份 ZMX 与两个光线 CSV 是否属于同一配置。按最大采样光束口径生成分区外筒，检查机械光阑和像面后盖，并输出同版 SCM、机械报告和 SVG。先离线检查。"
+  },
+  hood: {
+    inputs: ["准备入瞳直径及轴向位置、半视场角、目标排斥角和前端可用长度。", "两级方案还需外段排斥角。名义尺寸算出后，用入射段 CSV 复核有限厚度挡光环。"],
+    prompt: "用 zemax-to-tracepro-straylight 根据附件的入瞳、半视场角、目标排斥角和可用长度计算遮光罩。分别给出罩长、孔径和挡光环位置。输入不足时列出缺项，先给名义计算结果，再用入射段光线复核。"
+  }
+};
+const startButtons = [...document.querySelectorAll("[data-start]")];
+for (const button of startButtons) {
+  button.addEventListener("click", () => {
+    const { inputs, prompt } = startOptions[button.dataset.start];
+    const items = inputs.map(text => {
+      const item = document.createElement("li");
+      item.textContent = text;
+      return item;
+    });
+    document.getElementById("start-inputs").replaceChildren(...items);
+    document.getElementById("prompt").textContent = prompt;
+    document.getElementById("copy-result").textContent = "";
+    for (const option of startButtons) option.setAttribute("aria-pressed", option === button);
+  });
+}
 
 document.getElementById("copy").addEventListener("click", async () => {
   const prompt = document.getElementById("prompt");
