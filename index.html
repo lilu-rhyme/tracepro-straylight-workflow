@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="从 Zemax 光线包络生成 TracePro 机械件宏，并用同版轴向剖面复核机械光阑、筒壁与像面后盖。">
+<title>TracePro 杂散光机械件工作流</title>
+<style>
+:root{color-scheme:dark;--bg:#101819;--panel:#162323;--line:#324544;--text:#eef2e9;--muted:#b4c3bc;--green:#b5f487;--amber:#ffc285;--cyan:#7be2cb}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.65 system-ui,"Microsoft YaHei",sans-serif}
+a{color:inherit;text-underline-offset:.24em}
+button,a{touch-action:manipulation}
+:focus-visible{outline:2px solid var(--green);outline-offset:4px}
+.wrap{width:min(1100px,calc(100% - 48px));margin:auto}
+header{border-bottom:1px solid var(--line)}
+.bar{min-height:70px;display:flex;align-items:center;justify-content:space-between;gap:20px}
+.brand{text-decoration:none;font-weight:720;letter-spacing:.035em}
+.brand::before{content:"◈";color:var(--green);margin-right:.55rem}
+nav{display:flex;flex-wrap:wrap;gap:18px;color:var(--muted);font-size:.9rem}
+nav a{text-decoration:none}
+nav a:hover{color:var(--green)}
+.hero{padding:68px 0 46px;display:grid;grid-template-columns:1fr .32fr;gap:48px;align-items:end}
+.eyebrow{margin:0 0 13px;color:var(--green);font:650 .83rem/1.4 ui-monospace,monospace;letter-spacing:.1em}
+h1,h2,h3,p{margin-top:0}
+h1{font-size:clamp(2.5rem,6.1vw,5.2rem);letter-spacing:-.05em;line-height:1.08;margin-bottom:25px}
+h1 span{color:var(--green)}
+h2{font-size:clamp(1.65rem,4vw,2.7rem);line-height:1.2;margin-bottom:15px}
+h3{font-size:1.16rem;margin-bottom:8px}
+.lede{max-width:40rem;color:var(--muted);font-size:1.12rem;margin-bottom:0}
+.hero aside{border-left:1px solid var(--line);padding-left:22px;color:var(--muted);font-size:.9rem}
+.hero aside strong{display:block;color:var(--text);margin-bottom:5px}
+.actions{margin-top:25px;display:flex;gap:15px;align-items:center;flex-wrap:wrap}
+.button{display:inline-flex;padding:10px 16px;border:1px solid var(--line);border-radius:5px;text-decoration:none;font-weight:650;font-size:.92rem}
+.primary{background:var(--green);color:#162315;border-color:var(--green)}
+.primary:hover{background:#d0ffad}
+.scope{border:1px solid var(--line);border-radius:10px;background:var(--panel);overflow:hidden}
+.scope-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;padding:17px 22px;border-bottom:1px solid var(--line)}
+.scope-head h2{font-size:1.22rem;margin:0}
+.badge{padding:3px 10px;color:var(--amber);font-size:.8rem;border:1px solid #6e5840;border-radius:20px}
+.scope-body{padding:20px 22px}
+.modes{display:flex;flex-wrap:wrap;gap:8px}
+button{padding:8px 13px;border:1px solid var(--line);border-radius:4px;background:#1e2d2c;color:var(--text);font:inherit;font-size:.9rem;cursor:pointer}
+button:hover{border-color:var(--green)}
+button[aria-pressed="true"]{background:#31452e;color:var(--green);border-color:#7da367}
+.chart{display:block;width:100%;height:auto;margin:15px 0 5px}
+.legend{display:flex;flex-wrap:wrap;gap:8px 20px;color:var(--muted);font-size:.86rem;margin-bottom:16px}
+.legend span::before{display:inline-block;width:13px;height:3px;background:var(--key);content:"";margin:0 7px 3px 0}
+.readout{border-top:1px solid var(--line);padding-top:13px;display:flex;align-items:baseline;flex-wrap:wrap;gap:8px 18px}
+.readout strong{color:var(--green)}
+.readout p{color:var(--muted);font-size:.9rem;margin:0}
+.section{padding:66px 0;border-bottom:1px solid var(--line)}
+.steps,.checks{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:25px;margin-top:27px}
+.step,.check{border-top:1px solid var(--line);padding-top:17px}
+.step p,.check p,.note{color:var(--muted);margin-bottom:0}
+.note{font-size:.9rem}
+.step .eyebrow{margin-bottom:10px}
+.start{display:grid;grid-template-columns:1fr 1fr;gap:42px;align-items:start}
+blockquote{margin:0;padding:17px 20px;background:var(--panel);border-left:3px solid var(--green)}
+.copyrow{display:flex;align-items:center;gap:12px;margin-top:14px}
+footer{padding:25px 0 35px;color:var(--muted);font-size:.87rem}
+.footer{display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
+@media(max-width:720px){.wrap{width:calc(100% - 32px)}.hero,.start{grid-template-columns:1fr;gap:22px}.hero{padding-top:45px}.hero aside{display:none}.steps,.checks{grid-template-columns:1fr;gap:14px}.section{padding:42px 0}.scope-head,.scope-body{padding:14px}.bar{min-height:61px}.bar nav a:first-child{display:none}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+<header><div class="wrap bar">
+  <a class="brand" href="./">TracePro 光机工作流</a>
+  <nav aria-label="页面导航"><a href="#demo">交互剖面</a><a href="#workflow">工作流程</a><a href="#start">使用方法</a></nav>
+</div></header>
+<main class="wrap">
+  <section class="hero" aria-labelledby="title">
+    <div>
+      <p class="eyebrow">ZEMAX / TRACEPRO</p>
+      <h1 id="title">杂散光<span>机械件</span><br>生成与复核</h1>
+      <p class="lede">用 Zemax 的最大采样光束包络确定筒内孔，生成独立机械光阑与像面后盖，再用同一版 TracePro 宏绘制剖面。</p>
+      <div class="actions"><a class="button primary" href="#demo">查看剖面演示 ↓</a><a class="button" href="#start">如何使用</a></div>
+    </div>
+    <aside><strong>输入</strong>Zemax 处方 + 光线 CSV<br><br><strong>输出</strong>TracePro SCM + 机械报告 + SVG</aside>
+  </section>
+
+  <section class="scope" id="demo" aria-labelledby="demo-title">
+    <div class="scope-head"><h2 id="demo-title">轴向剖面演示</h2><span class="badge">虚构尺寸 · 单位 mm</span></div>
+    <div class="scope-body">
+      <div class="modes" role="group" aria-label="切换机械方案">
+        <button type="button" data-mode="reference" aria-pressed="false">仅光学 STOP</button>
+        <button type="button" data-mode="stop" aria-pressed="true">加入机械光阑</button>
+        <button type="button" data-mode="rear" aria-pressed="false">检查像面后盖</button>
+      </div>
+      <svg id="section" class="chart" viewBox="0 0 840 288" role="img" aria-labelledby="chart-title">
+        <title id="chart-title">光机剖面示意图</title><g id="plot"></g>
+      </svg>
+      <noscript><p>启用 JavaScript 后可以切换三种剖面方案。</p></noscript>
+      <div class="legend" aria-label="图例">
+        <span style="--key:#9caea8">筒体与后盖</span><span style="--key:#ffc285">机械光阑与肩位</span>
+        <span style="--key:#7be2cb">最大采样光束半径</span><span style="--key:#91b7ff">镜片边界</span>
+        <span style="--key:#d5abfa">像面与探测器</span>
+      </div>
+      <div class="readout" aria-live="polite"><strong id="result"></strong><p id="detail"></p></div>
+    </div>
+  </section>
+
+  <section class="section" id="workflow">
+    <p class="eyebrow">01 / WORKFLOW</p><h2>从光学处方到机械候选</h2>
+    <div class="steps">
+      <article class="step"><p class="eyebrow">A · 采样</p><h3>导出当前配置的光线</h3><p>准备 ZMX，在 OpticStudio 中运行生成的 ZPL，导出面间光线和入射段 CSV。各配置分别处理。</p></article>
+      <article class="step"><p class="eyebrow">B · 生成</p><h3>由包络和光学边界定内孔</h3><p>普通筒段按最大采样半径加裕量，同时给镜片外缘留间隙。需要机械光阑时，单独指定孔径、厚度和肩位。</p></article>
+      <article class="step"><p class="eyebrow">C · 复核</p><h3>用同版 SCM 出剖面</h3><p>核对实际内孔、光阑和后盖。提供 TracePro 的坐标测量及探测器包围盒后，可检查像面侧的轴向和径向包覆。</p></article>
+    </div>
+  </section>
+  <section class="section" aria-labelledby="review">
+    <p class="eyebrow">02 / EVIDENCE</p><h2 id="review">分别记录三类验证</h2>
+    <div class="checks">
+      <article class="check"><h3>离线几何</h3><p>检查宏的版本、机械接续和采样光线净空。</p></article>
+      <article class="check"><h3>TracePro 追迹</h3><p>使用对应版本的场景、光源和探测器设置，分别核对正常通光与离轴 PST。</p></article>
+      <article class="check"><h3>实体装配</h3><p>根据实际镜片边缘、定位面、压紧路径和装入方向确认可装配性。</p></article>
+    </div>
+  </section>
+  <section class="section start" id="start">
+    <div><p class="eyebrow">03 / GET STARTED</p><h2>在本机调用技能</h2>
+    <p class="note">安装 <code>zemax-to-tracepro-straylight</code> 后，先提供目标 ZMX 和当前配置号。导出光线 CSV 后，交回同一配置的数据即可继续生成。</p></div>
+    <div>
+      <blockquote id="prompt">用 zemax-to-tracepro-straylight 处理当前 ZMX。根据最大采样光束口径生成机械件，单独生成机械光阑，并输出同版 SCM 和 SVG 剖面，核对像面后盖位置。离线处理。</blockquote>
+      <div class="copyrow"><button id="copy" type="button">复制使用指令</button><span id="copy-result" class="note" role="status"></span></div>
+    </div>
+  </section>
+</main>
+<footer><div class="wrap footer">
+  <span>TracePro 杂散光机械件工作流 · 项目展示</span>
+  <span>设计参考 <a href="https://yogurt-lt.github.io/optomech-workflow/">Optomech Workflow</a> · <a href="https://github.com/lilu-rhyme/tracepro-straylight-workflow">GitHub 源码</a></span>
+</div></footer>
+<script>
+const modes = {
+  reference: { label: "仅记录光学 STOP", detail: "Z = 36 mm 的虚线表示处方光阑位置。筒体内孔保持原样。", stop: false, cover: 110 },
+  stop: { label: "机械光阑孔径 Ø14 mm", detail: "在 Z = 36 mm 设置独立环形光阑，前后各有肩位。", stop: true, cover: 110 },
+  rear: { label: "后盖在探测器后缘之后 5 mm", detail: "像面 Z = 104 mm，探测器后缘 Z = 110 mm，后盖从 Z = 115 mm 开始。", stop: true, cover: 115 }
+};
+const plot = document.getElementById("plot");
+const buttons = [...document.querySelectorAll("[data-mode]")];
+const ns = "http://www.w3.org/2000/svg";
+const x = z => 46 + z * 6.45;
+const y = r => 126 - r * 4.05;
+
+function draw(tag, attrs, text) {
+  const node = document.createElementNS(ns, tag);
+  for (const [name, value] of Object.entries(attrs)) node.setAttribute(name, value);
+  if (text) node.textContent = text;
+  plot.append(node);
+}
+
+function rect(start, end, low, high, attrs) {
+  draw("rect", { x: x(start), y: y(high), width: x(end) - x(start), height: y(low) - y(high), ...attrs });
+}
+
+function line(z1, r1, z2, r2, attrs) {
+  draw("line", { x1: x(z1), x2: x(z2), y1: y(r1), y2: y(r2), ...attrs });
+}
+
+function label(z, r, text, fill = "#b4c3bc", anchor = "middle") {
+  draw("text", { x: x(z), y: y(r), fill, "text-anchor": anchor, "font-size": 14 }, text);
+}
+
+function shell(a, b, bore, outer, fill) {
+  const style = { fill, stroke: "#101819", "stroke-width": 1 };
+  rect(a, b, bore, outer, style);
+  rect(a, b, -outer, -bore, style);
+}
+
+function show(mode) {
+  const state = modes[mode];
+  plot.replaceChildren();
+  for (const z of [0, 20, 40, 60, 80, 100, 120]) {
+    line(z, -26, z, 25, { stroke: "#344b48" });
+    label(z, -31, z.toString());
+  }
+  line(0, 0, 120, 0, { stroke: "#597570", "stroke-dasharray": "5 5" });
+  label(0, 27, "±r (mm)", "#b4c3bc", "start");
+  label(120, -37, "Z (mm)", "#b4c3bc", "end");
+  const bounds = [[0, 16, 17], [16, 32, 14], [32, 42, 6], [42, 66, 11], [66, 89, 8], [89, 104, 5]];
+  for (const [a, b, r] of bounds) {
+    rect(a, b, -r, r, { fill: "#7be2cb", "fill-opacity": 0.19, stroke: "#72bcae" });
+  }
+  for (const [a, b, r] of [[16, 27, 15], [48, 60, 13], [72, 82, 10]]) {
+    rect(a, b, -r, r, { fill: "none", stroke: "#91b7ff", "stroke-dasharray": "4 3" });
+  }
+  const metal = "#9caea8";
+  for (const [a, b, bore, outer] of [[0, 16, 19, 23], [16, 32, 17, 21], [32, 42, 14, 21],
+    [42, 66, 15, 20], [66, 89, 12, 17], [89, state.cover, 10, 16]]) shell(a, b, bore, outer, metal);
+  if (state.stop) {
+    shell(32, 35, 10, 14, "#c89165");
+    shell(35, 37, 7, 14, "#ffc285");
+    shell(37, 42, 10, 14, "#c89165");
+  }
+  rect(104, 110, -8, 8, { fill: "#d5abfa", "fill-opacity": 0.16, stroke: "#d5abfa", "stroke-dasharray": "4 3" });
+  rect(state.cover, state.cover + 4, -16, 16, { fill: mode === "rear" ? "#d5abfa" : metal });
+  line(36, -7, 36, 7, { stroke: "#ffc285", "stroke-width": 2, "stroke-dasharray": "4 3" });
+  label(36, 27, "STOP", "#ffc285");
+  line(104, -23, 104, 23, { stroke: "#d5abfa", "stroke-width": 2, "stroke-dasharray": "5 4" });
+  label(104, 27, "Image", "#d5abfa");
+  if (mode === "rear") line(110, -20, 115, -20, { stroke: "#d5abfa", "stroke-width": 3 });
+  document.getElementById("chart-title").textContent = state.label + "的轴向剖面";
+  document.getElementById("result").textContent = state.label;
+  document.getElementById("detail").textContent = state.detail;
+  for (const button of buttons) button.setAttribute("aria-pressed", button.dataset.mode === mode);
+}
+
+for (const button of buttons) button.addEventListener("click", () => show(button.dataset.mode));
+show("stop");
+
+document.getElementById("copy").addEventListener("click", async () => {
+  const prompt = document.getElementById("prompt");
+  const status = document.getElementById("copy-result");
+  try {
+    await navigator.clipboard.writeText(prompt.textContent);
+    status.textContent = "已复制";
+  } catch {
+    const selection = window.getSelection();
+    const range = document.createRange();
+    range.selectNodeContents(prompt);
+    selection.removeAllRanges();
+    selection.addRange(range);
+    status.textContent = "已选中文字，请按 Ctrl+C";
+  }
+});
+</script>
+</body>
+</html>
