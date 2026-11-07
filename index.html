@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="从 Zemax 光线包络生成 TracePro 机械件宏，并用同版轴向剖面复核机械光阑、筒壁与像面后盖。">
+<meta name="description" content="从 Zemax 光线包络生成 TracePro 机械件宏。在线切换一级和二级遮光罩，复核机械光阑、筒壁与像面后盖。">
 <title>TracePro 杂散光机械件工作流</title>
 <style>
 :root{color-scheme:dark;--bg:#101819;--panel:#162323;--line:#324544;--text:#eef2e9;--muted:#b4c3bc;--green:#b5f487;--amber:#ffc285;--cyan:#7be2cb}
@@ -46,6 +46,7 @@ button:hover{border-color:var(--green)}
 button[aria-pressed="true"]{background:#31452e;color:var(--green);border-color:#7da367}
 .chart{display:block;width:100%;height:auto;margin:15px 0 5px}
 .legend{display:flex;flex-wrap:wrap;gap:8px 20px;color:var(--muted);font-size:.86rem;margin-bottom:16px}
+.legend[hidden]{display:none}
 .legend span::before{display:inline-block;width:13px;height:3px;background:var(--key);content:"";margin:0 7px 3px 0}
 .readout{border-top:1px solid var(--line);padding-top:13px;display:flex;align-items:baseline;flex-wrap:wrap;gap:8px 18px}
 .readout strong{color:var(--green)}
@@ -62,6 +63,7 @@ blockquote{margin:0;padding:17px 20px;background:var(--panel);border-left:3px so
 footer{padding:25px 0 35px;color:var(--muted);font-size:.87rem}
 .footer{display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
 @media(max-width:720px){.wrap{width:calc(100% - 32px)}.hero,.start{grid-template-columns:1fr;gap:22px}.hero{padding-top:45px}.hero aside{display:none}.steps,.checks{grid-template-columns:1fr;gap:14px}.section{padding:42px 0}.scope-head,.scope-body{padding:14px}.bar{min-height:61px}.bar nav a:first-child{display:none}}
+@media(max-width:520px){.chart text{font-size:20px}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
 </style>
 </head>
@@ -75,7 +77,7 @@ footer{padding:25px 0 35px;color:var(--muted);font-size:.87rem}
     <div>
       <p class="eyebrow">ZEMAX / TRACEPRO</p>
       <h1 id="title">杂散光<span>机械件</span><br>生成与复核</h1>
-      <p class="lede">用 Zemax 的最大采样光束包络确定筒内孔，生成独立机械光阑与像面后盖，再用同一版 TracePro 宏绘制剖面。</p>
+      <p class="lede">用 Zemax 的最大采样光束包络确定筒内孔，生成前端遮光罩、独立机械光阑与像面后盖，再用同一版 TracePro 宏绘制剖面。</p>
       <div class="actions"><a class="button primary" href="#demo">查看剖面演示 ↓</a><a class="button" href="#start">如何使用</a></div>
     </div>
     <aside><strong>输入</strong>Zemax 处方 + 光线 CSV<br><br><strong>输出</strong>TracePro SCM + 机械报告 + SVG</aside>
@@ -86,17 +88,23 @@ footer{padding:25px 0 35px;color:var(--muted);font-size:.87rem}
     <div class="scope-body">
       <div class="modes" role="group" aria-label="切换机械方案">
         <button type="button" data-mode="reference" aria-pressed="false">仅光学 STOP</button>
-        <button type="button" data-mode="stop" aria-pressed="true">加入机械光阑</button>
+        <button type="button" data-mode="stop" aria-pressed="false">加入机械光阑</button>
         <button type="button" data-mode="rear" aria-pressed="false">检查像面后盖</button>
+        <button type="button" data-mode="hood1" aria-pressed="false">一级遮光罩</button>
+        <button type="button" data-mode="hood2" aria-pressed="true">二级遮光罩</button>
       </div>
       <svg id="section" class="chart" viewBox="0 0 840 288" role="img" aria-labelledby="chart-title">
         <title id="chart-title">光机剖面示意图</title><g id="plot"></g>
       </svg>
       <noscript><p>启用 JavaScript 后可以切换三种剖面方案。</p></noscript>
-      <div class="legend" aria-label="图例">
+      <div class="legend" id="overview-legend" aria-label="图例">
         <span style="--key:#9caea8">筒体与后盖</span><span style="--key:#ffc285">机械光阑与肩位</span>
         <span style="--key:#7be2cb">最大采样光束半径</span><span style="--key:#91b7ff">镜片边界</span>
         <span style="--key:#d5abfa">像面与探测器</span>
+      </div>
+      <div class="legend" id="hood-legend" aria-label="遮光罩图例" hidden>
+        <span style="--key:#9caea8">前筒</span><span style="--key:#ffc285">一级挡光环</span>
+        <span style="--key:#ee917f">二级挡光环</span><span style="--key:#7be2cb">入射光束包络</span>
       </div>
       <div class="readout" aria-live="polite"><strong id="result"></strong><p id="detail"></p></div>
     </div>
@@ -111,7 +119,15 @@ footer{padding:25px 0 35px;color:var(--muted);font-size:.87rem}
     </div>
   </section>
   <section class="section" aria-labelledby="review">
-    <p class="eyebrow">02 / EVIDENCE</p><h2 id="review">分别记录三类验证</h2>
+    <p class="eyebrow">02 / MECHANICAL OPTIONS</p><h2 id="review">外筒与内壁可以分别设计</h2>
+    <div class="checks">
+      <article class="check"><h3>分区外筒</h3><p>相邻普通筒段可共用外径，减少外表台阶。按各段光束和镜片边界计算内孔，并限制归并增加的材料。</p></article>
+      <article class="check"><h3>挡光隔圈</h3><p>在镜组间的自由空气段生成独立环件，可用直孔或锥孔。承力隔圈需要实测镜片边缘和接触面。</p></article>
+      <article class="check"><h3>消光环槽</h3><p>在圆柱形空气段筒壁上切同心环槽，检查槽底壁厚和端部留边。槽面需要赋予表面属性后再追迹。</p></article>
+    </div>
+  </section>
+  <section class="section" aria-labelledby="evidence">
+    <p class="eyebrow">03 / EVIDENCE</p><h2 id="evidence">分别记录三类验证</h2>
     <div class="checks">
       <article class="check"><h3>离线几何</h3><p>检查宏的版本、机械接续和采样光线净空。</p></article>
       <article class="check"><h3>TracePro 追迹</h3><p>使用对应版本的场景、光源和探测器设置，分别核对正常通光与离轴 PST。</p></article>
@@ -119,10 +135,10 @@ footer{padding:25px 0 35px;color:var(--muted);font-size:.87rem}
     </div>
   </section>
   <section class="section start" id="start">
-    <div><p class="eyebrow">03 / GET STARTED</p><h2>在本机调用技能</h2>
+    <div><p class="eyebrow">04 / GET STARTED</p><h2>在本机调用技能</h2>
     <p class="note">安装 <code>zemax-to-tracepro-straylight</code> 后，先提供目标 ZMX 和当前配置号。导出光线 CSV 后，交回同一配置的数据即可继续生成。</p></div>
     <div>
-      <blockquote id="prompt">用 zemax-to-tracepro-straylight 处理当前 ZMX。根据最大采样光束口径生成机械件，单独生成机械光阑，并输出同版 SCM 和 SVG 剖面，核对像面后盖位置。离线处理。</blockquote>
+      <blockquote id="prompt">用 zemax-to-tracepro-straylight 处理当前 ZMX。根据最大采样光束口径生成分区外筒和独立机械光阑。用入射段 CSV 分别生成一级和二级遮光罩，输出同版 SCM 和 SVG 剖面，检查采样光线净空和像面后盖位置。离线处理。</blockquote>
       <div class="copyrow"><button id="copy" type="button">复制使用指令</button><span id="copy-result" class="note" role="status"></span></div>
     </div>
   </section>
@@ -135,12 +151,15 @@ footer{padding:25px 0 35px;color:var(--muted);font-size:.87rem}
 const modes = {
   reference: { label: "仅记录光学 STOP", detail: "Z = 36 mm 的虚线表示处方光阑位置。筒体内孔保持原样。", stop: false, cover: 110 },
   stop: { label: "机械光阑孔径 Ø14 mm", detail: "在 Z = 36 mm 设置独立环形光阑，前后各有肩位。", stop: true, cover: 110 },
-  rear: { label: "后盖在探测器后缘之后 5 mm", detail: "像面 Z = 104 mm，探测器后缘 Z = 110 mm，后盖从 Z = 115 mm 开始。", stop: true, cover: 115 }
+  rear: { label: "后盖在探测器后缘之后 5 mm", detail: "像面 Z = 104 mm，探测器后缘 Z = 110 mm，后盖从 Z = 115 mm 开始。", stop: true, cover: 115 },
+  hood1: { label: "一级遮光罩 · 一道挡光环", detail: "入口后 4 mm 设置一级挡光环，示意孔径 Ø21.0 mm。", hoodStages: 1 },
+  hood2: { label: "二级遮光罩 · 两道挡光环", detail: "保留一级挡光环，在入口后 8 mm 增加二级挡光环，示意孔径 Ø19.8 mm。两级的实际消杂光效果需用离轴 PST 对比。", hoodStages: 2 }
 };
 const plot = document.getElementById("plot");
 const buttons = [...document.querySelectorAll("[data-mode]")];
 const ns = "http://www.w3.org/2000/svg";
-const x = z => 46 + z * 6.45;
+let axialScale = 6.45;
+const x = z => 46 + z * axialScale;
 const y = r => 126 - r * 4.05;
 
 function draw(tag, attrs, text) {
@@ -168,9 +187,33 @@ function shell(a, b, bore, outer, fill) {
   rect(a, b, -outer, -bore, style);
 }
 
-function show(mode) {
-  const state = modes[mode];
-  plot.replaceChildren();
+function drawHood(stages) {
+  for (const z of [0, 2, 4, 6, 8, 10, 12]) {
+    line(z, -26, z, 25, { stroke: "#344b48" });
+    label(z, -31, z.toString());
+  }
+  line(0, 0, 12, 0, { stroke: "#597570", "stroke-dasharray": "5 5" });
+  label(0, 27, "罩口", "#b4c3bc", "start");
+  label(12, 27, "镜头侧", "#b4c3bc", "end");
+  label(12, -37, "距罩口 (mm)", "#b4c3bc", "end");
+  const fill = "#9caea8";
+  for (const sign of [1, -1]) {
+    const outline = [[0, 13.8], [12, 13.8], [12, 11.4], [0, 12.2]];
+    draw("polygon", { points: outline.map(([z, r]) => `${x(z)},${y(sign * r)}`).join(" "),
+      fill, stroke: "#101819", "stroke-width": 1 });
+  }
+  for (const [a, b, r] of [[0, 3, 10.4], [3, 7, 9.9], [7, 12, 9.3]]) {
+    rect(a, b, -r, r, { fill: "#7be2cb", "fill-opacity": 0.19, stroke: "#72bcae" });
+  }
+  const rings = [[4, 4.5, 10.5, "#ffc285"], [8, 8.5, 9.9, "#ee917f"]];
+  rings.slice(0, stages).forEach(([a, b, radius, color], index) => {
+    shell(a, b, radius, 13.8, color);
+    line((a + b) / 2, 14.2, (a + b) / 2, 21, { stroke: color });
+    label((a + b) / 2, 23, index === 0 ? "一级挡光环" : "二级挡光环", color);
+  });
+}
+
+function drawOverview(mode, state) {
   for (const z of [0, 20, 40, 60, 80, 100, 120]) {
     line(z, -26, z, 25, { stroke: "#344b48" });
     label(z, -31, z.toString());
@@ -200,6 +243,17 @@ function show(mode) {
   line(104, -23, 104, 23, { stroke: "#d5abfa", "stroke-width": 2, "stroke-dasharray": "5 4" });
   label(104, 27, "Image", "#d5abfa");
   if (mode === "rear") line(110, -20, 115, -20, { stroke: "#d5abfa", "stroke-width": 3 });
+}
+
+function show(mode) {
+  const state = modes[mode];
+  const hoodView = Boolean(state.hoodStages);
+  plot.replaceChildren();
+  axialScale = hoodView ? 64.5 : 6.45;
+  if (hoodView) drawHood(state.hoodStages);
+  else drawOverview(mode, state);
+  document.getElementById("hood-legend").hidden = !hoodView;
+  document.getElementById("overview-legend").hidden = hoodView;
   document.getElementById("chart-title").textContent = state.label + "的轴向剖面";
   document.getElementById("result").textContent = state.label;
   document.getElementById("detail").textContent = state.detail;
@@ -207,7 +261,7 @@ function show(mode) {
 }
 
 for (const button of buttons) button.addEventListener("click", () => show(button.dataset.mode));
-show("stop");
+show("hood2");
 
 document.getElementById("copy").addEventListener("click", async () => {
   const prompt = document.getElementById("prompt");
