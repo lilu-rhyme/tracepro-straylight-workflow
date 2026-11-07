@@ -88,7 +88,7 @@ footer{padding:25px 0 35px;color:var(--muted);font-size:.87rem}
   </section>
 
   <section class="scope" id="demo" aria-labelledby="demo-title">
-    <div class="scope-head"><h2 id="demo-title">轴向剖面演示</h2><span class="badge">虚构尺寸 · 单位 mm</span></div>
+    <div class="scope-head"><h2 id="demo-title">轴向剖面演示</h2><span class="badge" id="demo-source">文献算例 · 单位 mm</span></div>
     <div class="scope-body">
       <div class="modes" role="group" aria-label="切换机械方案">
         <button type="button" data-mode="reference" aria-pressed="false">仅光学 STOP</button>
@@ -99,8 +99,8 @@ footer{padding:25px 0 35px;color:var(--muted);font-size:.87rem}
         <button type="button" data-mode="hood2" aria-pressed="true">二级遮光罩</button>
       </div>
       <div class="hood-controls" id="hood-controls" hidden>
-        <label for="incident-angle">离轴入射角 <output id="angle-display" for="incident-angle">35°</output></label>
-        <input id="incident-angle" type="range" min="0" max="80" value="35" step="1">
+        <label for="incident-angle">离轴入射角 <output id="angle-display" for="incident-angle">12°</output></label>
+        <input id="incident-angle" type="range" min="0" max="45" value="12" step="1">
         <p id="direct-window" aria-live="polite"></p>
       </div>
       <svg id="section" class="chart" viewBox="0 0 840 288" role="img" aria-labelledby="chart-title">
@@ -113,8 +113,8 @@ footer{padding:25px 0 35px;color:var(--muted);font-size:.87rem}
         <span style="--key:#d5abfa">像面与探测器</span>
       </div>
       <div class="legend" id="hood-legend" aria-label="遮光罩图例" hidden>
-        <span style="--key:#9caea8">前筒</span><span style="--key:#ffc285">一级挡光环</span>
-        <span style="--key:#ee917f">二级挡光环</span><span style="--key:#7be2cb">入射光束包络</span>
+        <span style="--key:#9caea8">筒内壁</span><span style="--key:#ffc285">内段挡光环</span>
+        <span style="--key:#ee917f">外段挡光环</span><span style="--key:#7be2cb">各段计算边界</span>
         <span style="--key:#b9c5ff">离轴直通光线示意</span>
       </div>
       <div class="readout" aria-live="polite"><strong id="result"></strong><p id="detail"></p></div>
@@ -149,32 +149,34 @@ footer{padding:25px 0 35px;color:var(--muted);font-size:.87rem}
     <div><p class="eyebrow">04 / GET STARTED</p><h2>在本机调用技能</h2>
     <p class="note">安装 <code>zemax-to-tracepro-straylight</code> 后，先提供目标 ZMX 和当前配置号。导出光线 CSV 后，交回同一配置的数据即可继续生成。</p></div>
     <div>
-      <blockquote id="prompt">用 zemax-to-tracepro-straylight 处理当前 ZMX。根据最大采样光束口径生成分区外筒和独立机械光阑。用入射段 CSV 分别生成一级和二级遮光罩，输出同版 SCM 和 SVG 剖面，检查采样光线净空和像面后盖位置。离线处理。</blockquote>
+      <blockquote id="prompt">用 zemax-to-tracepro-straylight 处理当前 ZMX。根据入瞳、半视场角、目标排斥角和安装长度限制计算一级和二级遮光罩，给出筒长、孔径和挡光环位置。用入射段 CSV 复核通光后，再生成可用的 SCM。离线处理。</blockquote>
       <div class="copyrow"><button id="copy" type="button">复制使用指令</button><span id="copy-result" class="note" role="status"></span></div>
     </div>
   </section>
 </main>
 <footer><div class="wrap footer">
   <span>TracePro 杂散光机械件工作流 · 项目展示</span>
-  <span>设计参考 <a href="https://yogurt-lt.github.io/optomech-workflow/">Optomech Workflow</a> · <a href="https://github.com/DCC-Lab/RayTracing">RayTracing</a> · <a href="https://github.com/lilu-rhyme/tracepro-straylight-workflow">GitHub 源码</a></span>
+  <span>设计参考 <a href="https://ntrs.nasa.gov/citations/20230011280">NASA 挡光环论文</a> · <a href="https://yogurt-lt.github.io/optomech-workflow/">Optomech Workflow</a> · <a href="https://github.com/lilu-rhyme/tracepro-straylight-workflow">GitHub 源码</a></span>
 </div></footer>
+<script src="./hood-designs.js"></script>
 <script>
 const modes = {
   reference: { label: "仅记录光学 STOP", detail: "Z = 36 mm 的虚线表示处方光阑位置。筒体内孔保持原样。", stop: false, cover: 110 },
   stop: { label: "机械光阑孔径 Ø14 mm", detail: "在 Z = 36 mm 设置独立环形光阑，前后各有肩位。", stop: true, cover: 110 },
   rear: { label: "后盖在探测器后缘之后 5 mm", detail: "像面 Z = 104 mm，探测器后缘 Z = 110 mm，后盖从 Z = 115 mm 开始。", stop: true, cover: 115 },
-  hood0: { label: "普通遮光罩 · 无挡光环", detail: "普通前筒的直通窗口由罩口和出口约束。", hoodStages: 0 },
-  hood1: { label: "一级遮光罩 · 一道挡光环", detail: "入口后 4 mm 设置一级挡光环，示意孔径 Ø21.0 mm。", hoodStages: 1 },
-  hood2: { label: "二级遮光罩 · 两道挡光环", detail: "保留一级挡光环，在入口后 8 mm 增加二级挡光环，示意孔径 Ø19.8 mm。两级的实际消杂光效果需用离轴 PST 对比。", hoodStages: 2 }
+  hood0: { label: "普通遮光罩 · 单级的无挡光环对照", hoodStages: 0 },
+  hood1: { label: "一级遮光罩 · 单一光学段", hoodStages: 1 },
+  hood2: { label: "二级遮光罩 · 中间光阑分隔前后段", hoodStages: 2 }
 };
 const plot = document.getElementById("plot");
 const buttons = [...document.querySelectorAll("[data-mode]")];
 const ns = "http://www.w3.org/2000/svg";
 let axialScale = 6.45;
+let radialScale = 4.05;
 let selectedMode = "hood2";
 const angleControl = document.getElementById("incident-angle");
 const x = z => 46 + z * axialScale;
-const y = r => 126 - r * 4.05;
+const y = r => 126 - r * radialScale;
 
 function draw(tag, attrs, text) {
   const node = document.createElementNS(ns, tag);
@@ -202,46 +204,55 @@ function shell(a, b, bore, outer, fill) {
 }
 
 function drawHood(stages) {
-  for (const z of [0, 2, 4, 6, 8, 10, 12]) {
-    line(z, -26, z, 25, { stroke: "#344b48" });
-    label(z, -31, z.toString());
+  const model = hoodDesigns[stages === 2 ? 1 : 0];
+  const length = model.total_length_mm;
+  const mouthWall = model.wall_inner_radius_at_mouth_mm;
+  const pupilWall = model.wall_inner_radius_at_pupil_mm;
+  axialScale = 774 / length;
+  radialScale = 80 / mouthWall;
+  const rPlot = px => px / radialScale;
+  for (let tick = 0; tick <= 4; tick++) {
+    const z = length * tick / 4;
+    line(z, rPlot(-99), z, rPlot(93), { stroke: "#344b48" });
+    label(z, rPlot(-116), z.toFixed(1), "#b4c3bc", tick === 4 ? "end" : tick === 0 ? "start" : "middle");
   }
-  line(0, 0, 12, 0, { stroke: "#597570", "stroke-dasharray": "5 5" });
-  label(0, 27, "罩口", "#b4c3bc", "start");
-  label(12, 27, "镜头侧", "#b4c3bc", "end");
-  label(12, -37, "距罩口 (mm)", "#b4c3bc", "end");
-  const fill = "#9caea8";
+  line(0, 0, length, 0, { stroke: "#597570", "stroke-dasharray": "5 5" });
+  label(0, rPlot(103), "罩口", "#b4c3bc", "start");
+  label(length, rPlot(103), "入瞳", "#b4c3bc", "end");
+  label(length, rPlot(-142), "距罩口 (mm) · 轴向和径向分别缩放", "#b4c3bc", "end");
+  const openings = model.apertures;
+  const vanes = stages ? model.internal_vanes : [];
+  const boundary = openings.map(p => [p.z_mm, p.aperture_radius_mm]);
   for (const sign of [1, -1]) {
-    const outline = [[0, 13.8], [12, 13.8], [12, 11.4], [0, 12.2]];
-    draw("polygon", { points: outline.map(([z, r]) => `${x(z)},${y(sign * r)}`).join(" "),
-      fill, stroke: "#101819", "stroke-width": 1 });
+    line(0, sign * mouthWall, length, sign * pupilWall, { stroke: "#9caea8", "stroke-width": 4 });
+    draw("polyline", { points: boundary.map(([z, r]) => `${x(z)},${y(sign * r)}`).join(" "),
+      fill: "none", stroke: "#7be2cb", "stroke-dasharray": "4 4" });
+    for (const ring of [...openings.filter(p => p.role !== "pupil"), ...vanes]) {
+      const z = ring.z_mm;
+      const wall = mouthWall + (pupilWall - mouthWall) * z / length;
+      const color = ring.role === "intermediate" ? "#e8eaf0" :
+        ring.stage === "outer" ? "#ee917f" : "#ffc285";
+      line(z, sign * ring.aperture_radius_mm, z, sign * wall, { stroke: color, "stroke-width": 3 });
+    }
   }
-  for (const [a, b, r] of [[0, 3, 10.4], [3, 7, 9.9], [7, 12, 9.3]]) {
-    rect(a, b, -r, r, { fill: "#7be2cb", "fill-opacity": 0.19, stroke: "#72bcae" });
-  }
-  const rings = [[4, 4.5, 10.5, "#ffc285"], [8, 8.5, 9.9, "#ee917f"]];
-  const activeRings = rings.slice(0, stages);
-  activeRings.forEach(([a, b, radius, color], index) => {
-    shell(a, b, radius, 13.8, color);
-    line((a + b) / 2, 14.2, (a + b) / 2, 21, { stroke: color });
-    label((a + b) / 2, 23, index === 0 ? "一级挡光环" : "二级挡光环", color);
-  });
+  if (stages === 2) label(openings[1].z_mm, rPlot(103), "中间光阑", "#e8eaf0");
   const angle = Number(angleControl.value);
   const slope = Math.tan(angle * Math.PI / 180);
-  const apertures = [[0, 12.2], [12, 11.4]];
-  for (const [a, b, radius] of activeRings) apertures.push([a, radius], [b, radius]);
+  const apertures = [...boundary, ...vanes.map(p => [p.z_mm, p.aperture_radius_mm])];
   const low = Math.max(...apertures.map(([z, radius]) => -radius - z * slope));
   const high = Math.min(...apertures.map(([z, radius]) => radius - z * slope));
   document.getElementById("angle-display").value = angle + "°";
   const readout = document.getElementById("direct-window");
   if (high - low > 1e-8) {
     const start = (low + high) / 2;
-    line(0, start, 12, start + 12 * slope,
+    line(0, start, length, start + length * slope,
       { stroke: "#b9c5ff", "stroke-width": 2, "stroke-dasharray": "5 4" });
     readout.textContent = `子午剖面直通窗口宽 ${(high - low).toFixed(2)} mm。此处只看几何直通，PST 需单独追迹。`;
   } else {
     readout.textContent = "该角度的几何直通窗口已闭合。反射和散射仍需单独追迹。";
   }
+  return `入瞳半径 26 mm，半视场角 9°。罩长 ${length.toFixed(2)} mm，共 ${vanes.length} 道内环。入瞳排斥角 20°`
+    + (stages === 2 ? "，外段排斥角 30°。" : "。");
 }
 
 function drawOverview(mode, state) {
@@ -281,15 +292,17 @@ function show(mode) {
   const state = modes[mode];
   const hoodView = state.hoodStages !== undefined;
   plot.replaceChildren();
-  axialScale = hoodView ? 64.5 : 6.45;
-  if (hoodView) drawHood(state.hoodStages);
-  else drawOverview(mode, state);
+  axialScale = 6.45;
+  radialScale = 4.05;
+  const detail = hoodView ? drawHood(state.hoodStages) : state.detail;
+  if (!hoodView) drawOverview(mode, state);
+  document.getElementById("demo-source").textContent = hoodView ? "文献算例 · 单位 mm" : "虚构尺寸 · 单位 mm";
   document.getElementById("hood-legend").hidden = !hoodView;
   document.getElementById("hood-controls").hidden = !hoodView;
   document.getElementById("overview-legend").hidden = hoodView;
   document.getElementById("chart-title").textContent = state.label + "的轴向剖面";
   document.getElementById("result").textContent = state.label;
-  document.getElementById("detail").textContent = state.detail;
+  document.getElementById("detail").textContent = detail;
   for (const button of buttons) button.setAttribute("aria-pressed", button.dataset.mode === mode);
 }
 
