@@ -41,6 +41,10 @@ h3{font-size:1.16rem;margin-bottom:8px}
 .badge{padding:3px 10px;color:var(--amber);font-size:.8rem;border:1px solid #6e5840;border-radius:20px}
 .scope-body{padding:20px 22px}
 .modes{display:flex;flex-wrap:wrap;gap:8px}
+.hood-controls{display:grid;grid-template-columns:minmax(120px,200px) 1fr;gap:8px 16px;align-items:center;margin-top:16px;font-size:.9rem}
+.hood-controls[hidden]{display:none}
+.hood-controls input{width:100%;accent-color:var(--green)}
+.hood-controls p{grid-column:1/-1;color:var(--muted);margin:0}
 button{padding:8px 13px;border:1px solid var(--line);border-radius:4px;background:#1e2d2c;color:var(--text);font:inherit;font-size:.9rem;cursor:pointer}
 button:hover{border-color:var(--green)}
 button[aria-pressed="true"]{background:#31452e;color:var(--green);border-color:#7da367}
@@ -90,8 +94,14 @@ footer{padding:25px 0 35px;color:var(--muted);font-size:.87rem}
         <button type="button" data-mode="reference" aria-pressed="false">仅光学 STOP</button>
         <button type="button" data-mode="stop" aria-pressed="false">加入机械光阑</button>
         <button type="button" data-mode="rear" aria-pressed="false">检查像面后盖</button>
+        <button type="button" data-mode="hood0" aria-pressed="false">普通遮光罩</button>
         <button type="button" data-mode="hood1" aria-pressed="false">一级遮光罩</button>
         <button type="button" data-mode="hood2" aria-pressed="true">二级遮光罩</button>
+      </div>
+      <div class="hood-controls" id="hood-controls" hidden>
+        <label for="incident-angle">离轴入射角 <output id="angle-display" for="incident-angle">35°</output></label>
+        <input id="incident-angle" type="range" min="0" max="80" value="35" step="1">
+        <p id="direct-window" aria-live="polite"></p>
       </div>
       <svg id="section" class="chart" viewBox="0 0 840 288" role="img" aria-labelledby="chart-title">
         <title id="chart-title">光机剖面示意图</title><g id="plot"></g>
@@ -105,6 +115,7 @@ footer{padding:25px 0 35px;color:var(--muted);font-size:.87rem}
       <div class="legend" id="hood-legend" aria-label="遮光罩图例" hidden>
         <span style="--key:#9caea8">前筒</span><span style="--key:#ffc285">一级挡光环</span>
         <span style="--key:#ee917f">二级挡光环</span><span style="--key:#7be2cb">入射光束包络</span>
+        <span style="--key:#b9c5ff">离轴直通光线示意</span>
       </div>
       <div class="readout" aria-live="polite"><strong id="result"></strong><p id="detail"></p></div>
     </div>
@@ -129,7 +140,7 @@ footer{padding:25px 0 35px;color:var(--muted);font-size:.87rem}
   <section class="section" aria-labelledby="evidence">
     <p class="eyebrow">03 / EVIDENCE</p><h2 id="evidence">分别记录三类验证</h2>
     <div class="checks">
-      <article class="check"><h3>离线几何</h3><p>检查宏的版本、机械接续和采样光线净空。</p></article>
+      <article class="check"><h3>离线几何</h3><p>检查宏的版本、机械接续和采样光线净空，并比较不同遮光罩的离轴直通窗口。</p></article>
       <article class="check"><h3>TracePro 追迹</h3><p>使用对应版本的场景、光源和探测器设置，分别核对正常通光与离轴 PST。</p></article>
       <article class="check"><h3>实体装配</h3><p>根据实际镜片边缘、定位面、压紧路径和装入方向确认可装配性。</p></article>
     </div>
@@ -145,13 +156,14 @@ footer{padding:25px 0 35px;color:var(--muted);font-size:.87rem}
 </main>
 <footer><div class="wrap footer">
   <span>TracePro 杂散光机械件工作流 · 项目展示</span>
-  <span>设计参考 <a href="https://yogurt-lt.github.io/optomech-workflow/">Optomech Workflow</a> · <a href="https://github.com/lilu-rhyme/tracepro-straylight-workflow">GitHub 源码</a></span>
+  <span>设计参考 <a href="https://yogurt-lt.github.io/optomech-workflow/">Optomech Workflow</a> · <a href="https://github.com/DCC-Lab/RayTracing">RayTracing</a> · <a href="https://github.com/lilu-rhyme/tracepro-straylight-workflow">GitHub 源码</a></span>
 </div></footer>
 <script>
 const modes = {
   reference: { label: "仅记录光学 STOP", detail: "Z = 36 mm 的虚线表示处方光阑位置。筒体内孔保持原样。", stop: false, cover: 110 },
   stop: { label: "机械光阑孔径 Ø14 mm", detail: "在 Z = 36 mm 设置独立环形光阑，前后各有肩位。", stop: true, cover: 110 },
   rear: { label: "后盖在探测器后缘之后 5 mm", detail: "像面 Z = 104 mm，探测器后缘 Z = 110 mm，后盖从 Z = 115 mm 开始。", stop: true, cover: 115 },
+  hood0: { label: "普通遮光罩 · 无挡光环", detail: "普通前筒的直通窗口由罩口和出口约束。", hoodStages: 0 },
   hood1: { label: "一级遮光罩 · 一道挡光环", detail: "入口后 4 mm 设置一级挡光环，示意孔径 Ø21.0 mm。", hoodStages: 1 },
   hood2: { label: "二级遮光罩 · 两道挡光环", detail: "保留一级挡光环，在入口后 8 mm 增加二级挡光环，示意孔径 Ø19.8 mm。两级的实际消杂光效果需用离轴 PST 对比。", hoodStages: 2 }
 };
@@ -159,6 +171,8 @@ const plot = document.getElementById("plot");
 const buttons = [...document.querySelectorAll("[data-mode]")];
 const ns = "http://www.w3.org/2000/svg";
 let axialScale = 6.45;
+let selectedMode = "hood2";
+const angleControl = document.getElementById("incident-angle");
 const x = z => 46 + z * axialScale;
 const y = r => 126 - r * 4.05;
 
@@ -206,11 +220,28 @@ function drawHood(stages) {
     rect(a, b, -r, r, { fill: "#7be2cb", "fill-opacity": 0.19, stroke: "#72bcae" });
   }
   const rings = [[4, 4.5, 10.5, "#ffc285"], [8, 8.5, 9.9, "#ee917f"]];
-  rings.slice(0, stages).forEach(([a, b, radius, color], index) => {
+  const activeRings = rings.slice(0, stages);
+  activeRings.forEach(([a, b, radius, color], index) => {
     shell(a, b, radius, 13.8, color);
     line((a + b) / 2, 14.2, (a + b) / 2, 21, { stroke: color });
     label((a + b) / 2, 23, index === 0 ? "一级挡光环" : "二级挡光环", color);
   });
+  const angle = Number(angleControl.value);
+  const slope = Math.tan(angle * Math.PI / 180);
+  const apertures = [[0, 12.2], [12, 11.4]];
+  for (const [a, b, radius] of activeRings) apertures.push([a, radius], [b, radius]);
+  const low = Math.max(...apertures.map(([z, radius]) => -radius - z * slope));
+  const high = Math.min(...apertures.map(([z, radius]) => radius - z * slope));
+  document.getElementById("angle-display").value = angle + "°";
+  const readout = document.getElementById("direct-window");
+  if (high - low > 1e-8) {
+    const start = (low + high) / 2;
+    line(0, start, 12, start + 12 * slope,
+      { stroke: "#b9c5ff", "stroke-width": 2, "stroke-dasharray": "5 4" });
+    readout.textContent = `子午剖面直通窗口宽 ${(high - low).toFixed(2)} mm。此处只看几何直通，PST 需单独追迹。`;
+  } else {
+    readout.textContent = "该角度的几何直通窗口已闭合。反射和散射仍需单独追迹。";
+  }
 }
 
 function drawOverview(mode, state) {
@@ -246,13 +277,15 @@ function drawOverview(mode, state) {
 }
 
 function show(mode) {
+  selectedMode = mode;
   const state = modes[mode];
-  const hoodView = Boolean(state.hoodStages);
+  const hoodView = state.hoodStages !== undefined;
   plot.replaceChildren();
   axialScale = hoodView ? 64.5 : 6.45;
   if (hoodView) drawHood(state.hoodStages);
   else drawOverview(mode, state);
   document.getElementById("hood-legend").hidden = !hoodView;
+  document.getElementById("hood-controls").hidden = !hoodView;
   document.getElementById("overview-legend").hidden = hoodView;
   document.getElementById("chart-title").textContent = state.label + "的轴向剖面";
   document.getElementById("result").textContent = state.label;
@@ -261,6 +294,7 @@ function show(mode) {
 }
 
 for (const button of buttons) button.addEventListener("click", () => show(button.dataset.mode));
+angleControl.addEventListener("input", () => show(selectedMode));
 show("hood2");
 
 document.getElementById("copy").addEventListener("click", async () => {
